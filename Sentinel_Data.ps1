@@ -1,20 +1,18 @@
-﻿# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Data.ps1
-# MÓDULO 1: Extracción de datos de mercado en tiempo real (Fix Objeto)
+# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Data.ps1
+# MÓDULO 1: Extracción de datos de mercado en tiempo real (Bybit API)
 
 function Get-SentinelMarketData {
-    # Lista definitiva de activos requeridos
     $Symbols = @("BTCUSDT", "ETHUSDT", "SOLUSDT", "ONDOUSDT", "HBARUSDT", "XRPUSDT", "TAOUSDT")
     $MarketPrices = @{}
 
-    Write-Host "🔄 [DATA] Conectando con Binance para extraer precios en tiempo real..." -ForegroundColor Cyan
+    Write-Host "🔄 [DATA] Conectando con Bybit para extraer precios en tiempo real..." -ForegroundColor Cyan
 
     foreach ($Symbol in $Symbols) {
         try {
-            $Uri = "https://api.binance.com/api/v3/ticker/price?symbol=$Symbol"
-            $Response = Invoke-RestMethod -Uri $Uri -Method Get -TimeoutSec 5
-            
-            $PriceRaw = [double]$Response.price
-            # Si el precio es menor a $2 (ONDO, HBAR, XRP), dejamos 4 decimales para precisión quirúrgica
+            $Uri = "https://api.bybit.com/v5/market/tickers?category=spot&symbol=$Symbol"
+            $Response = Invoke-RestMethod -Uri $Uri -Method Get -TimeoutSec 10
+            $PriceRaw = [double]$Response.result.list[0].lastPrice
+
             if ($PriceRaw -lt 2.0) {
                 $MarketPrices[$Symbol] = [math]::Round($PriceRaw, 4)
             } else {
@@ -27,19 +25,17 @@ function Get-SentinelMarketData {
         }
     }
 
-    # Extracción del Índice Fear & Greed Real
+    # Índice Fear & Greed
     try {
-        $FngUri = "https://api.alternative.me/fng/"
-        $FngResponse = Invoke-RestMethod -Uri $FngUri -Method Get -TimeoutSec 5
-        $FngValue = $FngResponse.data[0].value
+        $FngResponse = Invoke-RestMethod -Uri "https://api.alternative.me/fng/" -Method Get -TimeoutSec 10
+        $FngValue  = $FngResponse.data[0].value
         $FngStatus = $FngResponse.data[0].value_classification
     }
     catch {
-        $FngValue = "50"
+        $FngValue  = "50"
         $FngStatus = "Neutral"
     }
 
-    # Retornar objeto limpio sin duplicaciones
     return [PSCustomObject]@{
         Timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
         BTC       = $MarketPrices["BTCUSDT"]
