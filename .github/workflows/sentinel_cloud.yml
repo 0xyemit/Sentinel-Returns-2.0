@@ -7,11 +7,12 @@ on:
 
 jobs:
   sentinel:
-    runs-on: windows-latest
+    runs-on: self-hosted
     env:
-      SENTINEL_CLOUD_KEY: ${{ secrets.SENTINEL_CLOUD_KEY }}
-      SENTINEL_TG_TOKEN:  ${{ secrets.SENTINEL_TG_TOKEN }}
-      SENTINEL_TG_CHATID: ${{ secrets.SENTINEL_TG_CHATID }}
+      SENTINEL_OLLAMA_KEY:  ${{ secrets.SENTINEL_OLLAMA_KEY }}
+      SENTINEL_TG_TOKEN:    ${{ secrets.SENTINEL_TG_TOKEN }}
+      SENTINEL_TG_CHATID:   ${{ secrets.SENTINEL_TG_CHATID }}
+      SENTINEL_COINCAP_KEY: ${{ secrets.SENTINEL_COINCAP_KEY }}
 
     steps:
       - name: Checkout repository

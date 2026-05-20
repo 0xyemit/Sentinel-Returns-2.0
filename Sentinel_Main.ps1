@@ -19,13 +19,15 @@ function Start-SentinelPipeline {
     Write-Host "`n🛡️ === ARRANCANDO PIPELINE: SENTINEL RETURNS (UTF-8 SECURE) ===" -ForegroundColor White -BackgroundColor DarkBlue
 
     # Recuperar variables esenciales de entorno
-    $CloudKey = $env:SENTINEL_CLOUD_KEY
-    $TgToken  = $env:SENTINEL_TG_TOKEN
-    $TgChatId = $env:SENTINEL_TG_CHATID
+    $OllamaKey    = $env:SENTINEL_OLLAMA_KEY
+    $TgToken      = $env:SENTINEL_TG_TOKEN
+    $TgChatId     = $env:SENTINEL_TG_CHATID
+    $CoinCapKey   = $env:SENTINEL_COINCAP_KEY
 
-    if (-not $CloudKey) { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_CLOUD_KEY está vacía."; return }
-    if (-not $TgToken)   { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_TOKEN está vacía."; return }
-    if (-not $TgChatId)  { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_CHATID está vacía."; return }
+    if (-not $OllamaKey)  { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_OLLAMA_KEY está vacía."; return }
+    if (-not $TgToken)    { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_TOKEN está vacía."; return }
+    if (-not $TgChatId)   { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_CHATID está vacía."; return }
+    if (-not $CoinCapKey) { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_COINCAP_KEY está vacía."; return }
 
     # 1. Extraer precios en tiempo real de Binance
     $MarketData = Get-SentinelMarketData
@@ -34,21 +36,26 @@ function Start-SentinelPipeline {
         return
     }
 
-    # 2. Procesar análisis con DeepSeek-V3 en OpenRouter
-    $ReporteMarkdown = Get-GeminiAnalysis -MarketData $MarketData -ApiKey $CloudKey
+    # 2. Procesar análisis con deepseek-v3 en Ollama
+    $ReporteMarkdown = Get-GeminiAnalysis -MarketData $MarketData -ApiKey $OllamaKey
 
-    if ($ReporteMarkdown -like "ERROR:*") {
+    if (@($ReporteMarkdown)[0] -like "ERROR:*") {
         Write-Host "⚠️ [MASTER] Alerta: El análisis falló. Abortando envío." -ForegroundColor Red
         return
     }
 
-    # 3. Despachar a tu móvil por Telegram
-    $ResultadoEnvio = Send-SentinelTelegramMessage -MessageText $ReporteMarkdown -Token $TgToken -ChatId $TgChatId
+    # 3. Despachar a tu móvil por Telegram (2 mensajes)
+    $TodosEnviados = $true
+    foreach ($Msg in $ReporteMarkdown) {
+        $Ok = Send-SentinelTelegramMessage -MessageText $Msg -Token $TgToken -ChatId $TgChatId
+        if (-not $Ok) { $TodosEnviados = $false }
+        Start-Sleep -Milliseconds 800
+    }
 
-    if ($ResultadoEnvio) {
+    if ($TodosEnviados) {
         Write-Host "🏁 [MASTER] Pipeline completado. ¡Reporte limpio enviado con éxito!" -ForegroundColor Green
     } else {
-        Write-Host "⚠️ [MASTER] El reporte se generó pero falló el envío por Telegram." -ForegroundColor Yellow
+        Write-Host "⚠️ [MASTER] El reporte se generó pero falló algún envío por Telegram." -ForegroundColor Yellow
     }
 }
 
