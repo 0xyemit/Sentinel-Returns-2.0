@@ -1,0 +1,26 @@
+name: Sentinel Returns — Daily Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC = 08:00 CEST (UTC+2)
+  workflow_dispatch:        # disparo manual desde la UI de GitHub
+
+jobs:
+  sentinel:
+    runs-on: windows-latest
+    env:
+      SENTINEL_CLOUD_KEY: ${{ secrets.SENTINEL_CLOUD_KEY }}
+      SENTINEL_TG_TOKEN:  ${{ secrets.SENTINEL_TG_TOKEN }}
+      SENTINEL_TG_CHATID: ${{ secrets.SENTINEL_TG_CHATID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Sentinel Pipeline
+        shell: pwsh
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+          $OutputEncoding           = [System.Text.Encoding]::UTF8
+          & "$env:GITHUB_WORKSPACE\Sentinel_Main.ps1"
