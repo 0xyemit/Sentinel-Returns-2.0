@@ -85,10 +85,12 @@ function Start-SentinelListener {
     $ValidCoins = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
     $Offset     = 0L
 
+    Clear-TelegramWebhook -Token $TgToken
+
     Write-Host "`n🎧 [LISTENER] Escuchando comandos de Telegram. Ctrl+C para salir." -ForegroundColor Cyan
 
     while ($true) {
-        $Updates = Get-TelegramUpdates -Token $TgToken -Offset $Offset -LongPollTimeout 5
+        $Updates = @(Get-TelegramUpdates -Token $TgToken -Offset $Offset -LongPollTimeout 5)
 
         foreach ($Update in $Updates) {
             $Offset  = [long]$Update.update_id + 1L
