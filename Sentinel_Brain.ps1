@@ -116,10 +116,10 @@ function Get-GeminiAnalysis {
         [string]$ApiKey,
 
         [Parameter(Mandatory = $false)]
-        $Model = "deepseek-v3"
+        $Model = "deepseek-ai/DeepSeek-V3-0324"
     )
 
-    Write-Host "🧠 [BRAIN] Conectando con Ollama local..." -ForegroundColor Cyan
+    Write-Host "🧠 [BRAIN] Conectando con Inference.net (DeepSeek-V3)..." -ForegroundColor Cyan
 
     $CoinMap = @{
         BTC  = "bitcoin"
@@ -228,7 +228,7 @@ JSON de respuesta (exactamente esta estructura, sin texto extra):
         "Authorization" = "Bearer $ApiKey"
     }
 
-    $Uri = "http://localhost:11434/v1/chat/completions"
+    $Uri = "https://api.inference.net/v1/chat/completions"
 
     try {
         $BodyBytes    = [System.Text.Encoding]::UTF8.GetBytes($BodyJson)
