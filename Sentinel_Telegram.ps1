@@ -63,9 +63,9 @@ function Get-TelegramUpdates {
     $Uri = "https://api.telegram.org/bot$Token/getUpdates?offset=$Offset&timeout=$LongPollTimeout&allowed_updates=%5B%22message%22%5D"
     try {
         $R = Invoke-RestMethod -Uri $Uri -Method Get -TimeoutSec ($LongPollTimeout + 10)
-        if ($R.ok) { return ,$R.result }   # coma fuerza array — evita unwrap de PS
+        if ($R.ok) { return $R.result }
     } catch {
         Write-Host "⚠️ [TELEGRAM] getUpdates falló: $_" -ForegroundColor DarkYellow
     }
-    return ,@()
+    return @()
 }

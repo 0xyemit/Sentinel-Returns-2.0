@@ -170,7 +170,7 @@ function Get-GeminiAnalysis {
     }) -join "`n"
 
     $JsonAssets = ($ActiveCoins | ForEach-Object {
-        "    `"$_`": { `"verdict`": `"...", `"analysis`": `"...", `"sl`": `"...", `"tp1`": `"...", `"tp2`": `"...`" }"
+        '    "' + $_ + '": { "verdict": "...", "analysis": "...", "sl": "...", "tp1": "...", "tp2": "..." }'
     }) -join ",`n"
 
     $Prompt = @"
