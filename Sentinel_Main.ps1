@@ -36,7 +36,7 @@ function Start-SentinelPipeline {
         return
     }
 
-    # 2. Procesar análisis con deepseek-v3 en Ollama
+    # 2. Procesar análisis con DeepSeek-V3 en Inference.net
     $ReporteMarkdown = Get-GeminiAnalysis -MarketData $MarketData -ApiKey $OllamaKey
 
     if (@($ReporteMarkdown)[0] -like "ERROR:*") {
