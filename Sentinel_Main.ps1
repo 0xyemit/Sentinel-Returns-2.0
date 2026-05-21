@@ -41,15 +41,15 @@ function Start-SentinelPipeline {
     if (-not $TgChatId)   { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_CHATID está vacía."; return }
     if (-not $CoinCapKey) { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_COINCAP_KEY está vacía."; return }
 
-    # 1. Extraer precios en tiempo real de Binance
+    # 1. Extraer precios en tiempo real (CoinGecko)
     $MarketData = Get-SentinelMarketData
     if ($MarketData.BTC -eq 0.0) {
         Write-Host "⚠️ [MASTER] Alerta: Datos de mercado caídos. Cancelando ejecución." -ForegroundColor Red
         return
     }
 
-    # 2. Procesar análisis con DeepSeek-V3 en Ollama Cloud
-    $ReporteMarkdown = Get-GeminiAnalysis -MarketData $MarketData -ApiKey $OllamaKey
+    # 2. Procesar análisis con deepseek-v4-flash en Ollama Cloud
+    $ReporteMarkdown = Get-SentinelAnalysis -MarketData $MarketData -ApiKey $OllamaKey
 
     if (@($ReporteMarkdown)[0] -like "ERROR:*") {
         Write-Host "⚠️ [MASTER] Alerta: El análisis falló. Abortando envío." -ForegroundColor Red
@@ -130,7 +130,7 @@ function Start-SentinelListener {
                 $Params = @{ MarketData = $MD; ApiKey = $OllamaKey }
                 if ($RequestedCoin) { $Params['FilterCoin'] = $RequestedCoin }
 
-                $Msgs = Get-GeminiAnalysis @Params
+                $Msgs = Get-SentinelAnalysis @Params
                 if (@($Msgs)[0] -like "ERROR:*") {
                     Send-SentinelTelegramMessage -MessageText "❌ $(@($Msgs)[0])" -Token $TgToken -ChatId $ChatId | Out-Null
                     continue

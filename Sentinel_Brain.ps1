@@ -1,5 +1,5 @@
 ﻿# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Brain.ps1
-# MÓDULO 2: Conexión con OpenRouter (UTF-8 nativo)
+# MÓDULO 2: Conexión con Ollama Cloud (deepseek-v4-flash)
 
 function Get-Indicators {
     param([string]$CoinCapId)
@@ -106,7 +106,7 @@ function Format-AssetCard {
     return "$L1`n$L2`n$L3`n`n$L4`n$L5`n$L6"
 }
 
-function Get-GeminiAnalysis {
+function Get-SentinelAnalysis {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -122,7 +122,7 @@ function Get-GeminiAnalysis {
         [string]$FilterCoin = ""
     )
 
-    Write-Host "🧠 [BRAIN] Conectando con Ollama Cloud (DeepSeek-V3.2)..." -ForegroundColor Cyan
+    Write-Host "🧠 [BRAIN] Conectando con Ollama Cloud (deepseek-v4-flash)..." -ForegroundColor Cyan
 
     $CoinMap = @{
         BTC  = "bitcoin"
