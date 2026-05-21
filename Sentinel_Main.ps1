@@ -1,5 +1,6 @@
 ﻿# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Main.ps1
 # MASTER SCRIPT: Orquestador central de Sentinel Returns (UTF-8 GLOBAL BLINDAJE)
+param([switch]$Listen)
 
 # FORZAR ENCODING UTF-8 GLOBAL EN LA CONSOLA DE WINDOWS Y POWERSHELL
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -14,6 +15,17 @@ $CurrentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "$CurrentDir\Sentinel_Data.ps1"
 . "$CurrentDir\Sentinel_Brain.ps1"
 . "$CurrentDir\Sentinel_Telegram.ps1"
+
+# Cargar .env si existe (ejecución local — GitHub Actions inyecta desde Secrets)
+$EnvFile = Join-Path $CurrentDir ".env"
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | Where-Object { $_ -match '^\s*([^#=]+?)\s*=\s*(.+?)\s*$' } | ForEach-Object {
+        $n = $Matches[1]; $v = $Matches[2].Trim('"').Trim("'")
+        if (-not [Environment]::GetEnvironmentVariable($n, "Process")) {
+            [Environment]::SetEnvironmentVariable($n, $v, "Process")
+        }
+    }
+}
 
 function Start-SentinelPipeline {
     Write-Host "`n🛡️ === ARRANCANDO PIPELINE: SENTINEL RETURNS (UTF-8 SECURE) ===" -ForegroundColor White -BackgroundColor DarkBlue
@@ -59,4 +71,78 @@ function Start-SentinelPipeline {
     }
 }
 
-Start-SentinelPipeline
+function Start-SentinelListener {
+    $OllamaKey  = $env:SENTINEL_OLLAMA_KEY
+    $TgToken    = $env:SENTINEL_TG_TOKEN
+    $TgChatId   = $env:SENTINEL_TG_CHATID
+    $CoinCapKey = $env:SENTINEL_COINCAP_KEY
+
+    if (-not $OllamaKey)  { Write-Error "❌ [LISTENER] SENTINEL_OLLAMA_KEY vacía."; return }
+    if (-not $TgToken)    { Write-Error "❌ [LISTENER] SENTINEL_TG_TOKEN vacía."; return }
+    if (-not $TgChatId)   { Write-Error "❌ [LISTENER] SENTINEL_TG_CHATID vacía."; return }
+    if (-not $CoinCapKey) { Write-Error "❌ [LISTENER] SENTINEL_COINCAP_KEY vacía."; return }
+
+    $ValidCoins = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
+    $Offset     = 0L
+
+    Write-Host "`n🎧 [LISTENER] Escuchando comandos de Telegram. Ctrl+C para salir." -ForegroundColor Cyan
+
+    while ($true) {
+        $Updates = Get-TelegramUpdates -Token $TgToken -Offset $Offset -LongPollTimeout 5
+
+        foreach ($Update in $Updates) {
+            $Offset  = [long]$Update.update_id + 1L
+            $MsgText = $Update.message.text
+            $ChatId  = [string]$Update.message.chat.id
+            if (-not $MsgText) { continue }
+
+            Write-Host "📩 [LISTENER] [$ChatId] $MsgText" -ForegroundColor DarkCyan
+
+            if ($MsgText -match '^/help') {
+                $HelpMsg = "🛡️ <b>SENTINEL — Comandos</b>`n`n/analisis — Reporte completo (7 activos)`n/analisis BTC — Un activo (BTC ETH SOL ONDO HBAR XRP TAO)`n/status — Precios sin IA`n/help — Esta ayuda"
+                Send-SentinelTelegramMessage -MessageText $HelpMsg -Token $TgToken -ChatId $ChatId | Out-Null
+            }
+            elseif ($MsgText -match '^/status') {
+                Write-Host "⚡ [LISTENER] Obteniendo precios..." -ForegroundColor Yellow
+                $MD = Get-SentinelMarketData
+                $StatusMsg = "⚡ <b>PRECIOS EN TIEMPO REAL</b>`n📅 $($MD.Timestamp)`n`n₿ BTC  <code>`$$($MD.BTC)</code>`nΞ ETH  <code>`$$($MD.ETH)</code>`n◎ SOL  <code>`$$($MD.SOL)</code>`n💧 XRP  <code>`$$($MD.XRP)</code>`n💠 ONDO <code>`$$($MD.ONDO)</code>`n🔷 HBAR <code>`$$($MD.HBAR)</code>`n🧠 TAO  <code>`$$($MD.TAO)</code>`n`n😐 F&amp;G: $($MD.FnGValue) — $($MD.FnGStatus)"
+                Send-SentinelTelegramMessage -MessageText $StatusMsg -Token $TgToken -ChatId $ChatId | Out-Null
+            }
+            elseif ($MsgText -match '^/analisis(?:\s+(\w+))?') {
+                $RequestedCoin = if ($Matches[1]) { $Matches[1].ToUpper() } else { $null }
+
+                if ($RequestedCoin -and $RequestedCoin -notin $ValidCoins) {
+                    Send-SentinelTelegramMessage -MessageText "❌ Moneda no reconocida: <code>$RequestedCoin</code>`nUsa: BTC ETH SOL ONDO HBAR XRP TAO" -Token $TgToken -ChatId $ChatId | Out-Null
+                    continue
+                }
+
+                $WaitMsg = if ($RequestedCoin) { "⏳ Analizando <b>$RequestedCoin</b>..." } else { "⏳ Generando reporte completo..." }
+                Send-SentinelTelegramMessage -MessageText $WaitMsg -Token $TgToken -ChatId $ChatId | Out-Null
+
+                $MD = Get-SentinelMarketData
+                if ($MD.BTC -eq 0.0) {
+                    Send-SentinelTelegramMessage -MessageText "❌ Error obteniendo datos de mercado." -Token $TgToken -ChatId $ChatId | Out-Null
+                    continue
+                }
+
+                $Params = @{ MarketData = $MD; ApiKey = $OllamaKey }
+                if ($RequestedCoin) { $Params['FilterCoin'] = $RequestedCoin }
+
+                $Msgs = Get-GeminiAnalysis @Params
+                if (@($Msgs)[0] -like "ERROR:*") {
+                    Send-SentinelTelegramMessage -MessageText "❌ $(@($Msgs)[0])" -Token $TgToken -ChatId $ChatId | Out-Null
+                    continue
+                }
+
+                foreach ($Msg in $Msgs) {
+                    Send-SentinelTelegramMessage -MessageText $Msg -Token $TgToken -ChatId $ChatId | Out-Null
+                    Start-Sleep -Milliseconds 800
+                }
+            }
+        }
+
+        if ($Updates.Count -eq 0) { Start-Sleep -Seconds 2 }
+    }
+}
+
+if ($Listen) { Start-SentinelListener } else { Start-SentinelPipeline }

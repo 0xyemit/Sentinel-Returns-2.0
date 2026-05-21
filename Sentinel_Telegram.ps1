@@ -21,7 +21,7 @@ function Send-SentinelTelegramMessage {
     $Body = @{
         chat_id    = $ChatId
         text       = $MessageText
-        parse_mode = "Markdown"
+        parse_mode = "HTML"
     }
 
     $BodyJson = [System.Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json))
@@ -41,4 +41,20 @@ function Send-SentinelTelegramMessage {
         Write-Host "❌ [TELEGRAM] Error crítico en la petición: $_" -ForegroundColor Red
         return $false
     }
+}
+
+function Get-TelegramUpdates {
+    param(
+        [string]$Token,
+        [long]$Offset = 0,
+        [int]$LongPollTimeout = 5
+    )
+    $Uri = "https://api.telegram.org/bot$Token/getUpdates?offset=$Offset&timeout=$LongPollTimeout&allowed_updates=%5B%22message%22%5D"
+    try {
+        $R = Invoke-RestMethod -Uri $Uri -Method Get -TimeoutSec ($LongPollTimeout + 10)
+        if ($R.ok) { return $R.result }
+    } catch {
+        Write-Host "⚠️ [TELEGRAM] getUpdates falló: $_" -ForegroundColor DarkYellow
+    }
+    return @()
 }

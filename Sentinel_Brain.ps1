@@ -116,10 +116,13 @@ function Get-GeminiAnalysis {
         [string]$ApiKey,
 
         [Parameter(Mandatory = $false)]
-        $Model = "deepseek-v3"
+        $Model = "deepseek-v4-flash",
+
+        [Parameter(Mandatory = $false)]
+        [string]$FilterCoin = ""
     )
 
-    Write-Host "🧠 [BRAIN] Conectando con Ollama Cloud (DeepSeek-V3)..." -ForegroundColor Cyan
+    Write-Host "🧠 [BRAIN] Conectando con Ollama Cloud (DeepSeek-V3.2)..." -ForegroundColor Cyan
 
     $CoinMap = @{
         BTC  = "bitcoin"
@@ -131,9 +134,22 @@ function Get-GeminiAnalysis {
         TAO  = "bittensor"
     }
 
+    $AssetNames = @{
+        BTC  = "Bitcoin (BTC/USDT)"
+        ETH  = "Ethereum (ETH/USDT)"
+        SOL  = "Solana (SOL/USDT)"
+        ONDO = "Ondo Finance (ONDO/USDT)"
+        HBAR = "Hedera (HBAR/USDT)"
+        XRP  = "Ripple (XRP/USDT)"
+        TAO  = "Bittensor (TAO/USDT)"
+    }
+
+    $AllCoins    = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
+    $ActiveCoins = if ($FilterCoin -and $CoinMap.ContainsKey($FilterCoin)) { @($FilterCoin) } else { $AllCoins }
+
     Write-Host "📊 [BRAIN] Calculando indicadores técnicos (CoinCap)..." -ForegroundColor Cyan
     $Indicators = @{}
-    foreach ($Asset in $CoinMap.Keys) {
+    foreach ($Asset in $ActiveCoins) {
         Start-Sleep -Milliseconds 500
         try {
             $Indicators[$Asset] = Get-Indicators $CoinMap[$Asset]
@@ -144,18 +160,25 @@ function Get-GeminiAnalysis {
         }
     }
 
+    $AssetPricesMap = @{
+        BTC=$MarketData.BTC; ETH=$MarketData.ETH; SOL=$MarketData.SOL
+        ONDO=$MarketData.ONDO; HBAR=$MarketData.HBAR; XRP=$MarketData.XRP; TAO=$MarketData.TAO
+    }
+
+    $DataLines = ($ActiveCoins | ForEach-Object {
+        "- $($AssetNames[$_]): $($AssetPricesMap[$_]) | EMA200: $($Indicators[$_].EMA200) | RSI: $($Indicators[$_].RSI)"
+    }) -join "`n"
+
+    $JsonAssets = ($ActiveCoins | ForEach-Object {
+        "    `"$_`": { `"verdict`": `"...", `"analysis`": `"...", `"sl`": `"...", `"tp1`": `"...", `"tp2`": `"...`" }"
+    }) -join ",`n"
+
     $Prompt = @"
 Eres el nucleo de inteligencia artificial de 'Sentinel Returns'. Analiza los datos y devuelve UNICAMENTE un objeto JSON valido, sin texto extra, sin markdown, sin bloques de codigo.
 
 DATOS DE MERCADO EN TIEMPO REAL:
 - Fecha/Hora: $($MarketData.Timestamp)
-- Bitcoin (BTC/USDT): $($MarketData.BTC) | EMA200: $($Indicators['BTC'].EMA200) | RSI: $($Indicators['BTC'].RSI)
-- Ethereum (ETH/USDT): $($MarketData.ETH) | EMA200: $($Indicators['ETH'].EMA200) | RSI: $($Indicators['ETH'].RSI)
-- Solana (SOL/USDT): $($MarketData.SOL) | EMA200: $($Indicators['SOL'].EMA200) | RSI: $($Indicators['SOL'].RSI)
-- Ondo Finance (ONDO/USDT): $($MarketData.ONDO) | EMA200: $($Indicators['ONDO'].EMA200) | RSI: $($Indicators['ONDO'].RSI)
-- Hedera (HBAR/USDT): $($MarketData.HBAR) | EMA200: $($Indicators['HBAR'].EMA200) | RSI: $($Indicators['HBAR'].RSI)
-- Ripple (XRP/USDT): $($MarketData.XRP) | EMA200: $($Indicators['XRP'].EMA200) | RSI: $($Indicators['XRP'].RSI)
-- Bittensor (TAO/USDT): $($MarketData.TAO) | EMA200: $($Indicators['TAO'].EMA200) | RSI: $($Indicators['TAO'].RSI)
+$DataLines
 - Indice Fear & Greed: $($MarketData.FnGValue) ($($MarketData.FnGStatus))
 
 MATRIZ DE DECISION (aplica en este orden, sin excepciones):
@@ -201,13 +224,7 @@ JSON de respuesta (exactamente esta estructura, sin texto extra):
 {
   "market_commentary": "2-3 frases sobre sentimiento de mercado",
   "assets": {
-    "BTC":  { "verdict": "VENTA",   "analysis": "razonamiento con filtros si aplican", "sl": "79500",  "tp1": "72900", "tp2": "69300" },
-    "ETH":  { "verdict": "ESPERAR", "analysis": "...", "sl": "N/A", "tp1": "N/A", "tp2": "N/A" },
-    "SOL":  { "verdict": "VENTA",   "analysis": "...", "sl": "valor", "tp1": "valor", "tp2": "valor" },
-    "ONDO": { "verdict": "...", "analysis": "...", "sl": "...", "tp1": "...", "tp2": "..." },
-    "HBAR": { "verdict": "...", "analysis": "...", "sl": "...", "tp1": "...", "tp2": "..." },
-    "XRP":  { "verdict": "...", "analysis": "...", "sl": "...", "tp1": "...", "tp2": "..." },
-    "TAO":  { "verdict": "...", "analysis": "...", "sl": "...", "tp1": "...", "tp2": "..." }
+$JsonAssets
   },
   "priorities": [
     "Primera prioridad operativa",
@@ -217,9 +234,10 @@ JSON de respuesta (exactamente esta estructura, sin texto extra):
 "@
 
     $BodyObj = @{
-        model       = $Model
-        messages    = @(@{ role = "user"; content = $Prompt })
-        temperature = 0.3
+        model    = $Model
+        messages = @(@{ role = "user"; content = $Prompt })
+        stream   = $false
+        options  = @{ temperature = 0.3 }
     }
 
     $BodyJson = $BodyObj | ConvertTo-Json -Depth 10 -Compress
@@ -228,20 +246,20 @@ JSON de respuesta (exactamente esta estructura, sin texto extra):
         "Authorization" = "Bearer $ApiKey"
     }
 
-    $Uri = "https://api.ollama.com/v1/chat/completions"
+    $Uri = "https://api.ollama.com/api/chat"
 
     try {
         $BodyBytes    = [System.Text.Encoding]::UTF8.GetBytes($BodyJson)
-        $WebResponse  = Invoke-WebRequest -Uri $Uri -Method Post -Headers $Headers -ContentType "application/json; charset=utf-8" -Body $BodyBytes -TimeoutSec 120
+        $WebResponse  = Invoke-WebRequest -Uri $Uri -Method Post -Headers $Headers -ContentType "application/json; charset=utf-8" -Body $BodyBytes -TimeoutSec 300
         $ResponseText = [System.Text.Encoding]::UTF8.GetString($WebResponse.RawContentStream.ToArray())
         $Response     = $ResponseText | ConvertFrom-Json
 
-        if (-not $Response.choices[0].message.content) {
+        if (-not $Response.message.content) {
             return @("ERROR: Contenido vacío desde la API.")
         }
 
         # Strip markdown fences if LLM wrapped the JSON
-        $RawJson = ($Response.choices[0].message.content -replace '(?s)```json\s*|\s*```', '').Trim()
+        $RawJson = ($Response.message.content -replace '(?s)```json\s*|\s*```', '').Trim()
 
         try {
             $Data = $RawJson | ConvertFrom-Json
@@ -252,15 +270,19 @@ JSON de respuesta (exactamente esta estructura, sin texto extra):
 
         # Lookup tables for card formatting
         $AssetEmoji  = @{ BTC="₿"; ETH="Ξ"; SOL="◎"; ONDO="💠"; HBAR="🔷"; XRP="💧"; TAO="🧠" }
-        $AssetPrices = @{
-            BTC=$MarketData.BTC; ETH=$MarketData.ETH; SOL=$MarketData.SOL
-            ONDO=$MarketData.ONDO; HBAR=$MarketData.HBAR; XRP=$MarketData.XRP; TAO=$MarketData.TAO
+        $AssetPrices = $AssetPricesMap
+
+        # Pre-build asset cards (only active coins)
+        $Cards = @{}
+        foreach ($Sym in $ActiveCoins) {
+            $Cards[$Sym] = Format-AssetCard $Sym $Indicators[$Sym] $AssetPrices[$Sym] $AssetEmoji[$Sym] ($Data.assets.$Sym)
         }
 
-        # Pre-build all 7 asset cards
-        $Cards = @{}
-        foreach ($Sym in @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")) {
-            $Cards[$Sym] = Format-AssetCard $Sym $Indicators[$Sym] $AssetPrices[$Sym] $AssetEmoji[$Sym] ($Data.assets.$Sym)
+        # Single-coin response for on-demand commands
+        if ($FilterCoin -and $Cards.ContainsKey($FilterCoin)) {
+            $Commentary = ConvertTo-HtmlSafe $Data.market_commentary
+            $Sep = "━━━━━━━━━━━━━━━━━━━━"
+            return @("$Sep`n📊 <b>ANÁLISIS BAJO DEMANDA</b>`n`n$Commentary`n`n$($Cards[$FilterCoin])")
         }
 
         # HTML-escape LLM text fields used directly in messages

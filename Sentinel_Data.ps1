@@ -1,4 +1,4 @@
-# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Data.ps1
+﻿# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Data.ps1
 # MÓDULO 1: Extracción de datos de mercado en tiempo real (CoinGecko API)
 
 function Get-SentinelMarketData {
