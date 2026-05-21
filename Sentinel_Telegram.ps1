@@ -54,6 +54,23 @@ function Clear-TelegramWebhook {
     }
 }
 
+function Set-TelegramWebhook {
+    param(
+        [string]$Token,
+        [string]$Url
+    )
+    try {
+        $Body = @{ url = $Url } | ConvertTo-Json
+        $R = Invoke-RestMethod -Uri "https://api.telegram.org/bot$Token/setWebhook" -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -ContentType "application/json; charset=utf-8" -TimeoutSec 15
+        if ($R.ok) { Write-Host "✅ [TELEGRAM] Webhook registrado: $Url" -ForegroundColor Green }
+        else        { Write-Host "⚠️ [TELEGRAM] setWebhook ok=false: $($R.description)" -ForegroundColor Yellow }
+        return $R.ok
+    } catch {
+        Write-Host "❌ [TELEGRAM] setWebhook falló: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
 function Get-TelegramUpdates {
     param(
         [string]$Token,

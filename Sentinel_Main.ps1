@@ -1,6 +1,6 @@
 ﻿# G:\Mi unidad\1. PROYECTOS\SENTINEL RETURNS\Sentinel_Main.ps1
 # MASTER SCRIPT: Orquestador central de Sentinel Returns (UTF-8 GLOBAL BLINDAJE)
-param([switch]$Listen)
+param([switch]$Listen, [switch]$Webhook)
 
 # FORZAR ENCODING UTF-8 GLOBAL EN LA CONSOLA DE WINDOWS Y POWERSHELL
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -15,6 +15,7 @@ $CurrentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "$CurrentDir\Sentinel_Data.ps1"
 . "$CurrentDir\Sentinel_Brain.ps1"
 . "$CurrentDir\Sentinel_Telegram.ps1"
+if ($Webhook) { . "$CurrentDir\Sentinel_Server.ps1" }
 
 # Cargar .env si existe (ejecución local — GitHub Actions inyecta desde Secrets)
 $EnvFile = Join-Path $CurrentDir ".env"
@@ -147,4 +148,6 @@ function Start-SentinelListener {
     }
 }
 
-if ($Listen) { Start-SentinelListener } else { Start-SentinelPipeline }
+if ($Webhook) { Start-SentinelWebhookServer }
+elseif ($Listen) { Start-SentinelListener }
+else { Start-SentinelPipeline }
