@@ -6,13 +6,11 @@ function Start-SentinelWebhookServer {
     $OllamaKey  = $env:SENTINEL_OLLAMA_KEY
     $TgToken    = $env:SENTINEL_TG_TOKEN
     $TgChatId   = $env:SENTINEL_TG_CHATID
-    $CoinCapKey = $env:SENTINEL_COINCAP_KEY
     $Port       = if ($env:PORT) { $env:PORT } else { "8080" }
 
     if (-not $OllamaKey)  { Write-Error "[SERVER] SENTINEL_OLLAMA_KEY vacia."; exit 1 }
     if (-not $TgToken)    { Write-Error "[SERVER] SENTINEL_TG_TOKEN vacia."; exit 1 }
     if (-not $TgChatId)   { Write-Error "[SERVER] SENTINEL_TG_CHATID vacia."; exit 1 }
-    if (-not $CoinCapKey) { Write-Error "[SERVER] SENTINEL_COINCAP_KEY vacia."; exit 1 }
 
     $ValidCoins = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
 

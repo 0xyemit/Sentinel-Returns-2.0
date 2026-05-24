@@ -2,22 +2,16 @@
 # MÓDULO 2: Conexión con Ollama Cloud (deepseek-v4-flash)
 
 function Get-Indicators {
-    param([string]$CoinCapId)
+    param([string]$Symbol)   # Binance USDT pair, ej: "BTCUSDT"
 
-    $ApiKey = $env:SENTINEL_COINCAP_KEY
-    $Now    = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-    $Base   = "https://rest.coincap.io/v3/assets/$CoinCapId/history"
+    $Base = "https://api.binance.com/api/v3/klines"
 
-    # Daily history — 310 días para EMA200 estable
-    $D310    = [DateTimeOffset]::UtcNow.AddDays(-310).ToUnixTimeMilliseconds()
-    $Daily   = Invoke-RestMethod -Uri "$Base`?interval=d1&start=$D310&end=$Now&apiKey=$ApiKey" -TimeoutSec 15
-    $Closes  = $Daily.data | ForEach-Object { [decimal]$_.priceUsd }
+    # 210 velas diarias para EMA200 estable (indice 4 = close)
+    $KlinesD = Invoke-RestMethod -Uri "$Base`?symbol=$Symbol&interval=1d&limit=210" -TimeoutSec 15
+    $Closes  = $KlinesD | ForEach-Object { [decimal]$_[4] }
 
-    # h6 history — 35 días para RSI14 (intervalo más granular disponible en v3)
-    $H6Start   = [DateTimeOffset]::UtcNow.AddDays(-35).ToUnixTimeMilliseconds()
-    $H6        = Invoke-RestMethod -Uri "$Base`?interval=h6&start=$H6Start&end=$Now&apiKey=$ApiKey" -TimeoutSec 15
-    $RSICloses = $H6.data | ForEach-Object { [decimal]$_.priceUsd }
-    if ($RSICloses.Count -lt 15) { $RSICloses = $Closes }
+    # Mismas velas para RSI14 (suficientes puntos en daily)
+    $RSICloses = $Closes
 
     function Get-EMA {
         param([decimal[]]$Data, [int]$Period)
@@ -125,13 +119,13 @@ function Get-SentinelAnalysis {
     Write-Host "🧠 [BRAIN] Conectando con Ollama Cloud (deepseek-v4-flash)..." -ForegroundColor Cyan
 
     $CoinMap = @{
-        BTC  = "bitcoin"
-        ETH  = "ethereum"
-        SOL  = "solana"
-        ONDO = "ondo-finance"
-        HBAR = "hedera-hashgraph"
-        XRP  = "xrp"
-        TAO  = "bittensor"
+        BTC  = "BTCUSDT"
+        ETH  = "ETHUSDT"
+        SOL  = "SOLUSDT"
+        ONDO = "ONDOUSDT"
+        HBAR = "HBARUSDT"
+        XRP  = "XRPUSDT"
+        TAO  = "TAOUSDT"
     }
 
     $AssetNames = @{
@@ -147,7 +141,7 @@ function Get-SentinelAnalysis {
     $AllCoins    = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
     $ActiveCoins = if ($FilterCoin -and $CoinMap.ContainsKey($FilterCoin)) { @($FilterCoin) } else { $AllCoins }
 
-    Write-Host "📊 [BRAIN] Calculando indicadores técnicos (CoinCap)..." -ForegroundColor Cyan
+    Write-Host "📊 [BRAIN] Calculando indicadores técnicos (Binance)..." -ForegroundColor Cyan
     $Indicators = @{}
     foreach ($Asset in $ActiveCoins) {
         Start-Sleep -Milliseconds 500

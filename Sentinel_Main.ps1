@@ -35,14 +35,12 @@ function Start-SentinelPipeline {
     $OllamaKey    = $env:SENTINEL_OLLAMA_KEY
     $TgToken      = $env:SENTINEL_TG_TOKEN
     $TgChatId     = $env:SENTINEL_TG_CHATID
-    $CoinCapKey   = $env:SENTINEL_COINCAP_KEY
 
     if (-not $OllamaKey)  { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_OLLAMA_KEY está vacía."; return }
     if (-not $TgToken)    { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_TOKEN está vacía."; return }
     if (-not $TgChatId)   { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_TG_CHATID está vacía."; return }
-    if (-not $CoinCapKey) { Write-Error "❌ [MASTER] Error: `$env:SENTINEL_COINCAP_KEY está vacía."; return }
 
-    # 1. Extraer precios en tiempo real (CoinGecko)
+    # 1. Extraer precios en tiempo real (Binance)
     $MarketData = Get-SentinelMarketData
     if ($MarketData.BTC -eq 0.0) {
         Write-Host "⚠️ [MASTER] Alerta: Datos de mercado caídos. Cancelando ejecución." -ForegroundColor Red
@@ -76,12 +74,10 @@ function Start-SentinelListener {
     $OllamaKey  = $env:SENTINEL_OLLAMA_KEY
     $TgToken    = $env:SENTINEL_TG_TOKEN
     $TgChatId   = $env:SENTINEL_TG_CHATID
-    $CoinCapKey = $env:SENTINEL_COINCAP_KEY
 
     if (-not $OllamaKey)  { Write-Error "❌ [LISTENER] SENTINEL_OLLAMA_KEY vacía."; return }
     if (-not $TgToken)    { Write-Error "❌ [LISTENER] SENTINEL_TG_TOKEN vacía."; return }
     if (-not $TgChatId)   { Write-Error "❌ [LISTENER] SENTINEL_TG_CHATID vacía."; return }
-    if (-not $CoinCapKey) { Write-Error "❌ [LISTENER] SENTINEL_COINCAP_KEY vacía."; return }
 
     $ValidCoins = @("BTC","ETH","SOL","ONDO","HBAR","XRP","TAO")
     $Offset     = 0L

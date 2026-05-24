@@ -1,5 +1,9 @@
 FROM mcr.microsoft.com/powershell:lts-ubuntu-22.04
 
+# Instalar tzdata para soporte de zonas horarias (Europe/Madrid)
+RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
+ENV TZ=Europe/Madrid
+
 WORKDIR /app
 
 # Copiar solo los scripts necesarios (el .env NO se incluye — vars vienen de Cloud Run)
